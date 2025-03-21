@@ -3,7 +3,6 @@ from evaluators.sentence_alignment import align_sentences
 from rapidfuzz import fuzz
 from nltk.tokenize import word_tokenize
 import numpy as np
-from collections import Counter
 import time
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -22,31 +21,24 @@ def evaluate_ocr_accuracy(gt_sentences, pred_sentences):
 
 # 2. Sentence-grams and flag % differences
 def evaluate_sentence_gram_difference(gt_sentences, pred_sentences, n=2):
-    # start_time = time.time()
-    # vectorizer = CountVectorizer(analyzer='word', tokenizer=word_tokenize, token_pattern=None, ngram_range=(n, n), binary=True)
-    # vectorizer.fit(gt_sentences + pred_sentences)
-    # gt_vector = vectorizer.transform(gt_sentences).sum(axis=0).A1
-    # pred_vector = vectorizer.transform(pred_sentences).sum(axis=0).A1
-    # intersection = np.sum((gt_vector > 0) & (pred_vector > 0))
-    # total_gt_ngrams = np.sum(gt_vector > 0)
-    # difference_ratio = 1 - (intersection / max(total_gt_ngrams, 1))
-    # end_time = time.time()
-    # print(f"sentence gram difference time taken: {end_time - start_time:.4f} seconds")
-    import time
     start_time = time.time()
+    aligned_sentences = align_sentences(gt_sentences, pred_sentences)
+
     def get_ngrams(sentences, n):
         ngrams = set()
         for sentence in sentences:
-            tokens = sentence.split()
+            tokens = word_tokenize(sentence.lower())
             ngrams.update(tuple(tokens[i:i+n]) for i in range(len(tokens)-n+1))
         return ngrams
-
-    gt_ngrams = get_ngrams(gt_sentences, n)
-    pred_ngrams = get_ngrams(pred_sentences, n)
+    gt_aligned_sentences = [gt for gt, _ in aligned_sentences if gt]
+    pred_aligned_sentences = [pred for _, pred in aligned_sentences if pred]
+    gt_ngrams = get_ngrams(gt_aligned_sentences, n)
+    pred_ngrams = get_ngrams(pred_aligned_sentences, n)
     intersection = gt_ngrams & pred_ngrams
     difference_ratio = 1 - (len(intersection) / max(len(gt_ngrams), 1))
     end_time = time.time()
-    print(f"sentence gram difference time taken: {end_time - start_time:.4f} seconds")
+    print(f"sentence gram difference (n={n}) time taken: {end_time - start_time:.4f} seconds")
+
     return difference_ratio
 
 # 3. Reading order accuracy
