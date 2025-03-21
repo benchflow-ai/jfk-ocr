@@ -10,17 +10,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 def sentence_edit_distance(gt_sentence, pred_sentence):
     return 1 - (fuzz.ratio(gt_sentence, pred_sentence) / 100.0)
 
-def evaluate_ocr_accuracy(gt_sentences, pred_sentences):
-    start_time = time.time()
-    aligned_pairs = align_sentences(gt_sentences, pred_sentences)
-    total_distance = sum(sentence_edit_distance(gt, pred) for gt, pred in aligned_pairs)
-    avg_distance = total_distance / len(aligned_pairs)
-    end_time = time.time()
-    print(f"ocr accuracy time taken: {end_time - start_time:.4f} seconds")
-    return avg_distance
-
-# 2. Sentence-grams and flag % differences
-def evaluate_sentence_gram_difference(gt_sentences, pred_sentences, n=2):
+def evaluate_ocr_accuracy(gt_sentences, pred_sentences, n=2):
     start_time = time.time()
     aligned_sentences = align_sentences(gt_sentences, pred_sentences)
 
@@ -35,34 +25,44 @@ def evaluate_sentence_gram_difference(gt_sentences, pred_sentences, n=2):
     gt_ngrams = get_ngrams(gt_aligned_sentences, n)
     pred_ngrams = get_ngrams(pred_aligned_sentences, n)
     intersection = gt_ngrams & pred_ngrams
-    difference_ratio = 1 - (len(intersection) / max(len(gt_ngrams), 1))
+    accuracy = (len(intersection) / max(len(gt_ngrams), 1))
     end_time = time.time()
-    print(f"sentence gram difference (n={n}) time taken: {end_time - start_time:.4f} seconds")
+    print(f"sentence gram accuracy (n={n}) time taken: {end_time - start_time:.4f} seconds")
 
-    return difference_ratio
+    return accuracy
 
-# 3. Reading order accuracy
-def evaluate_reading_order_accuracy(gt_sentences, pred_sentences, n=2):
+# 2. Reading order accuracy
+def evaluate_reading_order_accuracy(gt_sentences, pred_sentences):
     start_time = time.time()
-    # Note: nltk.word_tokenize will split the punctuation into two tokens, it will affect the accuracy
-    vectorizer = CountVectorizer(analyzer='word', tokenizer=word_tokenize, token_pattern=None, ngram_range=(n, n), binary=True)
-    all_sentences = gt_sentences + pred_sentences
-    vectorizer.fit(all_sentences)
+    aligned_pairs = align_sentences(gt_sentences, pred_sentences)
 
-    gt_vec = vectorizer.transform(gt_sentences)
-    pred_vec = vectorizer.transform(pred_sentences)
+    pred_indices = []
+    for _, pred in aligned_pairs:
+        if pred is not None:
+            pred_idx = pred_sentences.index(pred)
+            pred_indices.append(pred_idx)
+        else:
+            pred_indices.append(None)
 
-    gt_sum = np.array(gt_vec.sum(axis=0)).flatten()
-    pred_sum = np.array(pred_vec.sum(axis=0)).flatten()
+    correct_order = 0
+    total_order = 0
 
-    correct_order = np.sum((gt_sum > 0) & (pred_sum > 0))
-    total_ngrams = np.sum(gt_sum > 0)
+    previous_valid_idx = None
+    for idx in pred_indices:
+        if idx is None:
+            continue
+        if previous_valid_idx is not None:
+            total_order += 1
+            if previous_valid_idx < idx:
+                correct_order += 1
+        previous_valid_idx = idx
 
-    accuracy = correct_order / max(total_ngrams, 1)
+    accuracy = correct_order / total_order if total_order > 0 else 0
     end_time = time.time()
     print(f"reading order accuracy time taken: {end_time - start_time:.4f} seconds")
     return accuracy
 
+# 3. Hallucination rate
 def evaluate_hallucination_rate(gt_sentences, pred_sentences):
     start_time = time.time()
     aligned_pairs = align_sentences(gt_sentences, pred_sentences)
@@ -99,7 +99,7 @@ def evaluate_all(gt_file, pred_file):
         
         results[doc_id] = {
             'ocr_accuracy': evaluate_ocr_accuracy(gt_sentences, pred_sentences),
-            'sentence_gram_difference': evaluate_sentence_gram_difference(gt_sentences, pred_sentences),
+            # 'sentence_gram_difference': evaluate_sentence_gram_difference(gt_sentences, pred_sentences),
             # 'table_extraction_accuracy': evaluate_table_extraction_accuracy([], []),  # Placeholder
             # 'llm_extraction_accuracy': evaluate_llm_extraction_accuracy({}, {}),  # Placeholder
             # 'checkbox_accuracy': evaluate_checkbox_accuracy([], []),  # Placeholder
