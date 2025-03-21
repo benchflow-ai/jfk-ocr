@@ -1,21 +1,29 @@
 import json
 from evaluators.sentence_alignment import align_sentences
 from rapidfuzz import fuzz
+from nltk.tokenize import word_tokenize
 import numpy as np
 from collections import Counter
+from sklearn.feature_extraction.text import CountVectorizer
 
 # 1. OCR Accuracy (Sentence-level Edit Distance)
 def sentence_edit_distance(gt_sentence, pred_sentence):
     return 1 - (fuzz.ratio(gt_sentence, pred_sentence) / 100.0)
 
 def evaluate_ocr_accuracy(gt_sentences, pred_sentences):
+    import time
+    start_time = time.time()
     aligned_pairs = align_sentences(gt_sentences, pred_sentences)
     total_distance = sum(sentence_edit_distance(gt, pred) for gt, pred in aligned_pairs)
     avg_distance = total_distance / len(aligned_pairs)
+    end_time = time.time()
+    print(f"ocr accuracy time taken: {end_time - start_time:.4f} seconds")
     return avg_distance
 
 # 2. Sentence-grams and flag % differences
 def evaluate_sentence_gram_difference(gt_sentences, pred_sentences, n=2):
+    import time
+    start_time = time.time()
     def get_ngrams(sentences, n):
         ngrams = set()
         for sentence in sentences:
@@ -27,7 +35,32 @@ def evaluate_sentence_gram_difference(gt_sentences, pred_sentences, n=2):
     pred_ngrams = get_ngrams(pred_sentences, n)
     intersection = gt_ngrams & pred_ngrams
     difference_ratio = 1 - (len(intersection) / max(len(gt_ngrams), 1))
+    end_time = time.time()
+    print(f"sentence gram difference time taken: {end_time - start_time:.4f} seconds")
     return difference_ratio
+
+# 3. Reading order accuracy
+def evaluate_reading_order_accuracy(gt_sentences, pred_sentences, n=2):
+    import time
+    start_time = time.time()
+    # Note: nltk.word_tokenize will split the punctuation into two tokens, it will affect the accuracy
+    vectorizer = CountVectorizer(analyzer='word', tokenizer=word_tokenize, token_pattern=None, ngram_range=(n, n), binary=True)
+    all_sentences = gt_sentences + pred_sentences
+    vectorizer.fit(all_sentences)
+
+    gt_vec = vectorizer.transform(gt_sentences)
+    pred_vec = vectorizer.transform(pred_sentences)
+
+    gt_sum = np.array(gt_vec.sum(axis=0)).flatten()
+    pred_sum = np.array(pred_vec.sum(axis=0)).flatten()
+
+    correct_order = np.sum((gt_sum > 0) & (pred_sum > 0))
+    total_ngrams = np.sum(gt_sum > 0)
+
+    accuracy = correct_order / max(total_ngrams, 1)
+    end_time = time.time()
+    print(f"reading order accuracy time taken: {end_time - start_time:.4f} seconds")
+    return accuracy
 
 def evaluate_all(gt_file, pred_file):
     with open(gt_file, 'r') as f:
@@ -47,7 +80,7 @@ def evaluate_all(gt_file, pred_file):
             # 'table_extraction_accuracy': evaluate_table_extraction_accuracy([], []),  # Placeholder
             # 'llm_extraction_accuracy': evaluate_llm_extraction_accuracy({}, {}),  # Placeholder
             # 'checkbox_accuracy': evaluate_checkbox_accuracy([], []),  # Placeholder
-            # 'reading_order_accuracy': evaluate_reading_order_accuracy(gt_sentences, pred_sentences),
+            'reading_order_accuracy': evaluate_reading_order_accuracy(gt_sentences, pred_sentences),
             # 'hallucination_rate': evaluate_hallucination_rate(gt_sentences, pred_sentences),
             # 'dropped_content': evaluate_dropped_content(gt_sentences, pred_sentences),
             # 'determinism': evaluate_determinism([pred_sentences]*10)  # Placeholder: 应传入多次运行的真实预测结果

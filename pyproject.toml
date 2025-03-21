@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "nltk>=3.9.1",
     "numpy>=2.2.4",
     "rapidfuzz>=3.12.2",
+    "scikit-learn>=1.6.1",
     "scipy>=1.15.2",
 ]
