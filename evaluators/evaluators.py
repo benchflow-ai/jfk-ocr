@@ -99,13 +99,7 @@ def evaluate_all(gt_file, pred_file):
         
         results[doc_id] = {
             'ocr_accuracy': evaluate_ocr_accuracy(gt_sentences, pred_sentences),
-            # 'sentence_gram_difference': evaluate_sentence_gram_difference(gt_sentences, pred_sentences),
-            # 'table_extraction_accuracy': evaluate_table_extraction_accuracy([], []),  # Placeholder
-            # 'llm_extraction_accuracy': evaluate_llm_extraction_accuracy({}, {}),  # Placeholder
-            # 'checkbox_accuracy': evaluate_checkbox_accuracy([], []),  # Placeholder
             'reading_order_accuracy': evaluate_reading_order_accuracy(gt_sentences, pred_sentences),
             'hallucination_rate': evaluate_hallucination_rate(gt_sentences, pred_sentences),
-            # 'dropped_content': evaluate_dropped_content(gt_sentences, pred_sentences),
-            # 'determinism': evaluate_determinism([pred_sentences]*10)  # Placeholder: 应传入多次运行的真实预测结果
         }
     return results
