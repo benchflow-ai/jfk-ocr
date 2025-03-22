@@ -4,7 +4,6 @@ from rapidfuzz import fuzz
 from nltk.tokenize import word_tokenize
 import numpy as np
 import time
-from sklearn.feature_extraction.text import CountVectorizer
 
 # 1. OCR Accuracy (Sentence-level Edit Distance)
 def sentence_edit_distance(gt_sentence, pred_sentence):
